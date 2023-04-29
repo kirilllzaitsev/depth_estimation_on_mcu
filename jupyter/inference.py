@@ -20,6 +20,7 @@ import serial
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from PIL import Image, ImageTk
+import cv2
 
 if __name__ == "__main__":
     x_test = np.load("x_test_fmnist.npy")
@@ -27,6 +28,8 @@ if __name__ == "__main__":
 
     ctk.set_appearance_mode("dark")
     # ctk.set_default_color_theme("dark-blue")
+
+    sys.argv = ["", "fmnist"]
 
     dataset_name = sys.argv[1]
     classes = []
@@ -73,14 +76,19 @@ if __name__ == "__main__":
     correct_count = 0
     # define how many images from the test set to send to the MCU
     test_len = 20
+    # img_size = (28,28)
+    img_size = (64,64)
+    num_pixels = np.product(img_size)
 
     for x, y in zip(x_test[:test_len], y_test[:test_len]):
+        x = cv2.resize(x, img_size)
         class_idx = y
         ser.write(x.tobytes())
         time.sleep(1)
-        img = ser.read(28 * 28)
+        img = ser.read(num_pixels)
         img = np.frombuffer(img, dtype=np.uint8)
         print("Image sent to the MCUs: \n {}".format(img))
+        assert len(img) == num_pixels, f"img: {img}"
         time.sleep(1)
         pred = ser.read(10)
         pred = np.frombuffer(pred, dtype=np.uint8)

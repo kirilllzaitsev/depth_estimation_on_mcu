@@ -14,13 +14,13 @@ import time
 import tkinter as tk
 
 import customtkinter as ctk
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import serial
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from PIL import Image, ImageTk
-import cv2
 
 if __name__ == "__main__":
     x_test = np.load("x_test_fmnist.npy")

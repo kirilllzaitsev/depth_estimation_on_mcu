@@ -9,6 +9,7 @@ from pickletools import uint8
 import matplotlib
 
 matplotlib.use("Agg")
+# matplotlib.use("TkAgg")
 import sys
 import time
 import tkinter as tk
@@ -115,28 +116,28 @@ def main(x_test, y_test, classes, ser: serial.Serial):
 
     for req_img, class_idx in zip(x_test[:test_len], y_test[:test_len]):
         req_img, pred = get_pred(ser, img_size, num_pixels, req_img)
-        print(pred)
+        print(pred.shape)
 
-        print(
-            f"Target: {classes[class_idx]}, Prediction (from MCU): {classes[np.argmax(pred)]}"
-        )
-        if np.argmax(pred) == class_idx:
-            correct_count += 1
+        # print(
+        #     f"Target: {classes[class_idx]}, Prediction (from MCU): {classes[np.argmax(pred)]}"
+        # )
+        # if np.argmax(pred) == class_idx:
+        #     correct_count += 1
 
-        # use_gui = True
-        use_gui = False
-        if use_gui:
-            draw_gui(
-                classes=classes,
-                correct_count=correct_count,
-                test_len=test_len,
-                x=req_img,
-                class_idx=class_idx,
-                pred=pred,
-            )
+        # # use_gui = True
+        # use_gui = False
+        # if use_gui:
+        #     draw_gui(
+        #         classes=classes,
+        #         correct_count=correct_count,
+        #         test_len=test_len,
+        #         x=req_img,
+        #         class_idx=class_idx,
+        #         pred=pred,
+        #     )
         ser.reset_input_buffer()
         ser.reset_output_buffer()
-    print(f"Accuracy: {(correct_count / test_len) * 100:.2f}%")
+    # print(f"Accuracy: {(correct_count / test_len) * 100:.2f}%")
 
 
 def get_pred(ser, img_size, num_pixels, req_img):
@@ -148,8 +149,20 @@ def get_pred(ser, img_size, num_pixels, req_img):
     assert (
         len(resp_img) == num_pixels
     ), f"Expected {num_pixels} bytes, got {len(resp_img)}"
-    pred = ser.read(10)
+    pred = ser.read(num_pixels)
     pred = np.frombuffer(pred, dtype=np.uint8)
+    fig, axs = plt.subplots(1, 3, figsize=(10, 5))
+    axs[0].imshow(req_img)
+    axs[1].imshow(resp_img.reshape(img_size))
+    axs[2].imshow(pred.reshape(img_size))
+
+    axs[0].set_title("Request Image")
+    axs[1].set_title("Response Image")
+    axs[2].set_title("Depth Prediction")
+
+    plt.savefig('depth_test.png')
+    pred = pred.reshape(img_size)
+    req_img = req_img.reshape(img_size)
     return req_img, pred
 
 

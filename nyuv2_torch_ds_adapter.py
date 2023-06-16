@@ -16,7 +16,6 @@ import cv2
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 
-
 # changes to orig dataset
 # scale_size -> target_size
 
@@ -29,13 +28,13 @@ class BaseDataset(Dataset):
 
         train_transform = [
             A.HorizontalFlip(),
-            A.RandomCrop(crop_size[1],crop_size[0]),
+            A.RandomCrop(crop_size[1], crop_size[0]),
             A.RandomBrightnessContrast(),
             A.RandomGamma(),
             A.HueSaturationValue(),
         ]
         test_transform = [
-            A.CenterCrop(crop_size[1],crop_size[0]),
+            A.CenterCrop(crop_size[1], crop_size[0]),
         ]
         self.train_transform = train_transform
         self.test_transform = test_transform
@@ -105,7 +104,12 @@ class nyudepthv2(BaseDataset):
         scale_size=None,
         fold_ratio=1,
     ):
-        super().__init__(crop_size, fold_ratio=fold_ratio, args=args, is_maxim=getattr(args, "is_maxim", True))
+        super().__init__(
+            crop_size,
+            fold_ratio=fold_ratio,
+            args=args,
+            is_maxim=getattr(args, "is_maxim", True),
+        )
 
         # if crop_size[0] > 480:
         #     scale_size = (int(crop_size[0] * 640 / 480), crop_size[0])
@@ -179,10 +183,32 @@ class TorchDataset(tf.data.Dataset):
         return tf.data.Dataset.from_generator(
             self._generator,
             output_signature=(
-                tf.TensorSpec(shape=data_sample[0].shape, dtype=data_sample[0].dtype),
-                tf.TensorSpec(shape=data_sample[1].shape, dtype=data_sample[1].dtype),
+                tf.TensorSpec(
+                    shape=self.data_sample[0].shape, dtype=self.data_sample[0].dtype
+                ),
+                tf.TensorSpec(
+                    shape=self.data_sample[1].shape, dtype=self.data_sample[1].dtype
+                ),
             ),
-        )._as_variant_tensor()
+        )
+
+    def _variant_tensor_attr(self):
+        """Returns a structure of tf.AttrValue that represents this dataset."""
+        output_classes = tf.Tensor
+        # output_shapes = tf.TensorShape([len(self.data)])
+        output_shapes = (self.data_sample[0].shape, self.data_sample[1].shape)
+        output_types = (self.data_sample[0].dtype, self.data_sample[1].dtype)
+        return tf.raw_ops.DatasetVariant(
+            tf.raw_ops.TensorDataset(components=self._generator),
+            output_types=[output_types],
+            output_shapes=[output_shapes],
+        )
+
+    # def _as_variant_tensor(self):
+    #     return self
+
+    def _as_graph_element(self):
+        return self
 
     def _inputs(self):
         return []
@@ -190,6 +216,10 @@ class TorchDataset(tf.data.Dataset):
     @property
     def element_spec(self):
         return (
-            tf.TensorSpec(shape=data_sample[0].shape, dtype=data_sample[0].dtype),
-            tf.TensorSpec(shape=data_sample[1].shape, dtype=data_sample[1].dtype),
+            tf.TensorSpec(
+                shape=self.data_sample[0].shape, dtype=self.data_sample[0].dtype
+            ),
+            tf.TensorSpec(
+                shape=self.data_sample[1].shape, dtype=self.data_sample[1].dtype
+            ),
         )

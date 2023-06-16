@@ -17,6 +17,10 @@ import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 
 
+# changes to orig dataset
+# scale_size -> target_size
+
+
 class BaseDataset(Dataset):
     def __init__(self, crop_size, fold_ratio=1, args=None, is_maxim=True):
         self.count = 0
@@ -25,13 +29,13 @@ class BaseDataset(Dataset):
 
         train_transform = [
             A.HorizontalFlip(),
-            A.RandomCrop(crop_size[0], crop_size[1]),
+            A.RandomCrop(crop_size[1],crop_size[0]),
             A.RandomBrightnessContrast(),
             A.RandomGamma(),
             A.HueSaturationValue(),
         ]
         test_transform = [
-            A.CenterCrop(crop_size[0], crop_size[1]),
+            A.CenterCrop(crop_size[1],crop_size[0]),
         ]
         self.train_transform = train_transform
         self.test_transform = test_transform
@@ -103,8 +107,8 @@ class nyudepthv2(BaseDataset):
     ):
         super().__init__(crop_size, fold_ratio=fold_ratio, args=args, is_maxim=getattr(args, "is_maxim", True))
 
-        if crop_size[0] > 480:
-            scale_size = (int(crop_size[0] * 640 / 480), crop_size[0])
+        # if crop_size[0] > 480:
+        #     scale_size = (int(crop_size[0] * 640 / 480), crop_size[0])
 
         self.scale_size = scale_size
 
@@ -143,14 +147,14 @@ class nyudepthv2(BaseDataset):
 
         depth = depth / 1000.0  # convert in meters
 
-        if self.scale_size:
-            image = cv2.resize(image, (self.scale_size[0], self.scale_size[1]))
-            depth = cv2.resize(depth, (self.scale_size[0], self.scale_size[1]))
-
         if self.is_train:
             image, depth = self.augment_training_data(image, depth)
         else:
             image, depth = self.augment_test_data(image, depth)
+
+        if self.scale_size:
+            image = cv2.resize(image, (self.scale_size[0], self.scale_size[1]))
+            depth = cv2.resize(depth, (self.scale_size[0], self.scale_size[1]))
 
         return image, depth
 

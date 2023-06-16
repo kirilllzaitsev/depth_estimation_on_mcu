@@ -2,6 +2,7 @@ import random
 import sys
 from pathlib import Path
 
+import numpy as np
 import tensorflow as tf
 
 sys.path.append(
@@ -14,7 +15,8 @@ import ai8x
 import albumentations as A
 import cv2
 import torchvision.transforms as transforms
-from torch.utils.data import Dataset
+from config import cfg
+from torch.utils.data import DataLoader, Dataset, Subset, random_split
 
 # changes to orig dataset
 # scale_size -> target_size
@@ -27,11 +29,11 @@ class BaseDataset(Dataset):
         self.is_maxim = is_maxim
 
         train_transform = [
-            A.HorizontalFlip(),
+            # A.HorizontalFlip(),
             A.RandomCrop(crop_size[1], crop_size[0]),
-            A.RandomBrightnessContrast(),
-            A.RandomGamma(),
-            A.HueSaturationValue(),
+            # A.RandomBrightnessContrast(),
+            # A.RandomGamma(),
+            # A.HueSaturationValue(),
         ]
         test_transform = [
             A.CenterCrop(crop_size[1], crop_size[0]),
@@ -50,17 +52,17 @@ class BaseDataset(Dataset):
     def augment_training_data(self, image, depth):
         H, W, C = image.shape
 
-        if self.count % 4 == 0:
-            alpha = random.random()
-            beta = random.random()
-            p = 0.75
+        # if self.count % 4 == 0:
+        #     alpha = random.random()
+        #     beta = random.random()
+        #     p = 0.75
 
-            l = int(alpha * W)
-            w = int(max((W - alpha * W) * beta * p, 1))
+        #     l = int(alpha * W)
+        #     w = int(max((W - alpha * W) * beta * p, 1))
 
-            image[:, l : l + w, 0] = depth[:, l : l + w]
-            image[:, l : l + w, 1] = depth[:, l : l + w]
-            image[:, l : l + w, 2] = depth[:, l : l + w]
+        #     image[:, l : l + w, 0] = depth[:, l : l + w]
+        #     image[:, l : l + w, 1] = depth[:, l : l + w]
+        #     image[:, l : l + w, 2] = depth[:, l : l + w]
 
         image, depth = self.common_augment(image, depth, self.train_transform)
 
@@ -160,66 +162,62 @@ class nyudepthv2(BaseDataset):
             image = cv2.resize(image, (self.scale_size[0], self.scale_size[1]))
             depth = cv2.resize(depth, (self.scale_size[0], self.scale_size[1]))
 
+        depth = np.expand_dims(depth, axis=2)
+
+        # image /= 255.0
+
         return image, depth
 
 
-class TorchDataset(tf.data.Dataset):
-    def __init__(self, pytorch_dataset: nyudepthv2):
-        self.pytorch_dataset = pytorch_dataset
-        self.data_sample = self.pytorch_dataset[0]
+def get_tf_nyuv2_ds(args):
+    nyuv2_ds_train = nyudepthv2(
+        data_path="/media/master/text/cv_data/nyuv2/nyu_data/data",
+        filenames_path="/media/master/text/cv_data/nyuv2/nyu_data/data",
+        args=args,
+        is_train=True,
+        crop_size=args.crop_size,
+        scale_size=args.target_size,
+        fold_ratio=args.out_fold_ratio,
+    )
+    nyuv2_ds_test = nyudepthv2(
+        data_path="/media/master/text/cv_data/nyuv2/nyu_data/data",
+        filenames_path="/media/master/text/cv_data/nyuv2/nyu_data/data",
+        is_train=False,
+        crop_size=args.crop_size,
+        scale_size=args.target_size,
+        fold_ratio=args.out_fold_ratio,
+        args=args,
+    )
 
-    def _generator(self):
-        for i in range(len(self.pytorch_dataset)):
-            data = self.pytorch_dataset[i]
-            yield data[0], data[1]
+    def generator(ds):
+        # for images, labels in nyuv2_loader:
+        for sample in ds:
+            # Yield data batch-by-batch
+            img, depth = sample
+            # img /= 255.0
+            yield (img, depth)
+            # yield images.numpy(), labels.numpy()
 
-    def __iter__(self):
-        return self._generator()
+    # Use output_signature to specify the output format and shapes
+    output_signature = (
+        tf.TensorSpec(shape=(64, 64, 3), dtype=tf.float32),
+        tf.TensorSpec(shape=(64, 64, 1), dtype=tf.float32),
+    )
 
-    def __len__(self):
-        return len(self.pytorch_dataset)
+    val_size = int(0.2 * len(nyuv2_ds_train))  # 20% of the dataset
 
-    def _as_variant_tensor(self):
-        return tf.data.Dataset.from_generator(
-            self._generator,
-            output_signature=(
-                tf.TensorSpec(
-                    shape=self.data_sample[0].shape, dtype=self.data_sample[0].dtype
-                ),
-                tf.TensorSpec(
-                    shape=self.data_sample[1].shape, dtype=self.data_sample[1].dtype
-                ),
-            ),
+    # Split the dataset into training and validation sets
+    train_dataset, val_dataset = random_split(
+        nyuv2_ds_train, [len(nyuv2_ds_train) - val_size, val_size]
+    )
+    datasets = []
+    from functools import partial
+
+    for ds in [train_dataset, val_dataset, nyuv2_ds_test]:
+        if cfg.do_overfit:
+            ds = Subset(ds, range(1))
+        tf_dataset = tf.data.Dataset.from_generator(
+            partial(generator, ds=ds), output_signature=output_signature
         )
-
-    def _variant_tensor_attr(self):
-        """Returns a structure of tf.AttrValue that represents this dataset."""
-        output_classes = tf.Tensor
-        # output_shapes = tf.TensorShape([len(self.data)])
-        output_shapes = (self.data_sample[0].shape, self.data_sample[1].shape)
-        output_types = (self.data_sample[0].dtype, self.data_sample[1].dtype)
-        return tf.raw_ops.DatasetVariant(
-            tf.raw_ops.TensorDataset(components=self._generator),
-            output_types=[output_types],
-            output_shapes=[output_shapes],
-        )
-
-    # def _as_variant_tensor(self):
-    #     return self
-
-    def _as_graph_element(self):
-        return self
-
-    def _inputs(self):
-        return []
-
-    @property
-    def element_spec(self):
-        return (
-            tf.TensorSpec(
-                shape=self.data_sample[0].shape, dtype=self.data_sample[0].dtype
-            ),
-            tf.TensorSpec(
-                shape=self.data_sample[1].shape, dtype=self.data_sample[1].dtype
-            ),
-        )
+        datasets.append(tf_dataset)
+    return datasets

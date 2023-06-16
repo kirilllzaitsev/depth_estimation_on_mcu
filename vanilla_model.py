@@ -4,7 +4,7 @@ from config import cfg
 from model import get_model
 
 
-def fit(epochs, img_size):
+def fit(ds_train, epochs, img_size, ds_val=None):
     # Free up RAM in case the model definition cells were run multiple times
     keras.backend.clear_session()
     loss = tf.keras.losses.MeanSquaredError()
@@ -18,10 +18,9 @@ def fit(epochs, img_size):
         patience=cfg.es_patience, restore_best_weights=True
     )
     history = fp_model.fit(
-        train_images,
-        train_images,
+        x=ds_train,
         epochs=epochs,
-        validation_data=(test_images, test_images),
+        validation_data=ds_val,
         callbacks=[es],
     )
     return fp_model, history

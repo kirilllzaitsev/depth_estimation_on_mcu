@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 from config import cfg
-from data import test_images, test_labels, train_images, train_labels
+from mnist_data import test_images, test_labels, train_images, train_labels
 
 
 # Helper function to run inference on a TFLite model

@@ -1,4 +1,5 @@
-import tensorflow.keras as keras
+import keras
+# import tensorflow.keras as keras
 from tensorflow.keras import layers
 
 
@@ -9,7 +10,7 @@ def get_model(img_size, num_classes, in_channels=1, use_qas=False):
     ### [First half of the network: downsampling inputs] ###
 
     # Entry block
-    filters = [16, 32]
+    filters = [16, 32, 64, 128, 256]
     x = layers.Conv2D(filters[0], in_channels, strides=2, padding="same")(inputs)
     x = layers.BatchNormalization()(x)
     x = layers.Activation("relu")(x)
@@ -54,9 +55,11 @@ def get_model(img_size, num_classes, in_channels=1, use_qas=False):
         x = layers.add([x, residual])  # Add back residual
         previous_block_activation = x  # Set aside next residual
 
+    # x = layers.Activation("sigmoid")(x)
+
     # Add a per-pixel classification layer
     outputs = layers.Conv2D(
-        1, in_channels, activation=None, padding="same", name="output"
+        1, in_channels, activation='sigmoid', padding="same", name="output"
     )(x)
 
     # Define the model

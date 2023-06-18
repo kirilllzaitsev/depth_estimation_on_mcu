@@ -103,19 +103,25 @@ def draw_gui(classes, correct_count, test_len, x, class_idx, pred):
     root.mainloop()
 
 
-def main(x_test, y_test, classes, ser: serial.Serial):
+def main(x_test, y_test, ser: serial.Serial):
     correct_count = 0
     # define how many images from the test set to send to the MCU
     test_len = 2
-    img_size = (28, 28)
+    img_size = (64, 64)
     # img_size = (64,64)
-    num_pixels = np.product(img_size)
+    num_pixels_in = np.product(img_size) * 3
+    num_pixels_out = np.product(img_size) * 1
 
-    _ = get_pred(ser, img_size, num_pixels, x_test[0])
+    _ = get_pred(ser, img_size, num_pixels_in, x_test[0], num_pixels_out=num_pixels_out)
     time.sleep(2)
 
+    ser.reset_input_buffer()
+    ser.reset_output_buffer()
+
     for req_img, class_idx in zip(x_test[:test_len], y_test[:test_len]):
-        req_img, pred = get_pred(ser, img_size, num_pixels, req_img)
+        req_img, pred = get_pred(
+            ser, img_size, num_pixels_in, req_img, num_pixels_out=num_pixels_out
+        )
         print(pred.shape)
 
         # print(
@@ -140,16 +146,21 @@ def main(x_test, y_test, classes, ser: serial.Serial):
     # print(f"Accuracy: {(correct_count / test_len) * 100:.2f}%")
 
 
-def get_pred(ser, img_size, num_pixels, req_img):
+def get_pred(ser, img_size, num_pixels_in, req_img, num_pixels_out=None):
+    if num_pixels_out is None:
+        num_pixels_out = num_pixels_in
     req_img = cv2.resize(req_img, img_size)
+    req_img = (req_img * 255).astype("uint8")
     ser.write(req_img.tobytes())
     ser.flush()
-    resp_img = ser.read(num_pixels)
+    time.sleep(15)
+    resp_img = ser.read(num_pixels_in)
     resp_img = np.frombuffer(resp_img, dtype=np.uint8)
     assert (
-        len(resp_img) == num_pixels
-    ), f"Expected {num_pixels} bytes, got {len(resp_img)}"
-    pred = ser.read(num_pixels)
+        len(resp_img) == num_pixels_in
+    ), f"Expected {num_pixels_in} bytes, got {len(resp_img)}"
+    time.sleep(15)
+    pred = ser.read(num_pixels_out)
     pred = np.frombuffer(pred, dtype=np.uint8)
     fig, axs = plt.subplots(1, 3, figsize=(10, 5))
     axs[0].imshow(req_img)
@@ -160,7 +171,7 @@ def get_pred(ser, img_size, num_pixels, req_img):
     axs[1].set_title("Response Image")
     axs[2].set_title("Depth Prediction")
 
-    plt.savefig('depth_test.png')
+    plt.savefig("depth_test.png")
     pred = pred.reshape(img_size)
     req_img = req_img.reshape(img_size)
     return req_img, pred
@@ -174,51 +185,21 @@ if __name__ == "__main__":
     args, _ = parser.parse_known_args()
     print(args)
 
-    x_test = np.load("x_test_fmnist.npy")
-    y_test = np.load("y_test_fmnist.npy").squeeze()
+    x_test = np.load(
+        "/media/master/wext/msc_studies/second_semester/microcontrollers/project/stm32/code/test_data/x_test_depth.npy"
+    )
+    y_test = np.load(
+        "/media/master/wext/msc_studies/second_semester/microcontrollers/project/stm32/code/test_data/y_test_depth.npy"
+    ).squeeze()
 
     ctk.set_appearance_mode("dark")
     # ctk.set_default_color_theme("dark-blue")
-
-    dataset_name = args.ds_name
-    classes = []
-
-    if dataset_name == "mnist":
-        classes = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
-    elif dataset_name == "cifar10":
-        classes = [
-            "airplane",
-            "automobile",
-            "bird",
-            "cat",
-            "deer",
-            "dog",
-            "frog",
-            "horse",
-            "ship",
-            "truck",
-        ]
-    elif dataset_name == "fmnist":
-        classes = [
-            "T-shirt/top",
-            "Trouser",
-            "Pullover",
-            "Dress",
-            "Coat",
-            "Sandal",
-            "Shirt",
-            "Sneaker",
-            "Bag",
-            "Ankle boot",
-        ]
-    else:
-        raise ValueError("Invalid dataset name")
 
     print(f"Loaded x with shape: {x_test.shape}")
     print(f"Loaded y with shape: {y_test.shape}")
 
     serial_port = "/dev/ttyACM0"
-    ser = serial.Serial(port=serial_port, baudrate=115200, timeout=3)
+    ser = serial.Serial(port=serial_port, baudrate=115200, timeout=20, buffer_size=12400)
     # flush the serial port
     ser.flush()
     ser.flushInput()
@@ -226,6 +207,6 @@ if __name__ == "__main__":
     ser.reset_input_buffer()
     ser.reset_output_buffer()
     try:
-        main(x_test, y_test, classes, ser)
+        main(x_test, y_test, ser)
     finally:
         ser.close()

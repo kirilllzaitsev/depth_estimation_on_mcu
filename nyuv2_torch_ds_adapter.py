@@ -1,17 +1,18 @@
 import random
 import sys
+from functools import partial
 from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
+import torch
 
 sys.path.append(
-    "/media/master/wext/msc_studies/second_semester/microcontrollers/exercices/8/ai8x-training"
+    "/media/master/wext/msc_studies/second_semester/microcontrollers/project/stm32/code/nyuv2_torch_ds_adapter.py"
 )
 import json
 import os
 
-import ai8x
 import albumentations as A
 import cv2
 import torchvision.transforms as transforms
@@ -84,6 +85,8 @@ class BaseDataset(Dataset):
         return image, depth
 
     def apply_ai8x_transforms(self, x):
+        import ai8x
+
         x = self.to_tensor(x)
         x = ai8x.normalize(self.args)(x)
         x = ai8x.fold(fold_ratio=self.fold_ratio)(x)
@@ -123,7 +126,7 @@ class nyudepthv2(BaseDataset):
 
         self.image_path_list = []
         self.depth_path_list = []
-        self.base_dir = Path("/media/master/text/cv_data/nyuv2/nyu_data")
+        self.base_dir = Path(filenames_path).parent
 
         txt_path = Path(filenames_path)
         if is_train:
@@ -151,7 +154,7 @@ class nyudepthv2(BaseDataset):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         depth = cv2.imread(gt_path, cv2.IMREAD_UNCHANGED).astype("float32")
 
-        depth = depth / 1000.0  # convert in meters
+        # depth = depth / 1000.0  # convert in meters
 
         if self.is_train:
             image, depth = self.augment_training_data(image, depth)
@@ -159,20 +162,27 @@ class nyudepthv2(BaseDataset):
             image, depth = self.augment_test_data(image, depth)
 
         if self.scale_size:
-            image = cv2.resize(image, (self.scale_size[0], self.scale_size[1]))
-            depth = cv2.resize(depth, (self.scale_size[0], self.scale_size[1]))
+            image = cv2.resize(image, (self.scale_size[1], self.scale_size[0]))
+            depth = cv2.resize(depth, (self.scale_size[1], self.scale_size[0]))
 
         depth = np.expand_dims(depth, axis=2)
+        depth = depth.astype("float32")
+        image = image.astype("float32")
+        # depth = tf.image.convert_image_dtype(depth, tf.float32)
 
-        # image /= 255.0
+        # image = tf.image.convert_image_dtype(image, tf.float32)
+        depth /= 1000.0  # convert in meters
+        min_depth, max_depth = 0.2, 4
+        depth = (depth - min_depth) / (max_depth - min_depth)
+        image /= 255.0
 
         return image, depth
 
 
-def get_tf_nyuv2_ds(args):
+def get_tf_nyuv2_ds(data_path, args):
     nyuv2_ds_train = nyudepthv2(
-        data_path="/media/master/text/cv_data/nyuv2/nyu_data/data",
-        filenames_path="/media/master/text/cv_data/nyuv2/nyu_data/data",
+        data_path=data_path,
+        filenames_path=data_path,
         args=args,
         is_train=True,
         crop_size=args.crop_size,
@@ -180,14 +190,15 @@ def get_tf_nyuv2_ds(args):
         fold_ratio=args.out_fold_ratio,
     )
     nyuv2_ds_test = nyudepthv2(
-        data_path="/media/master/text/cv_data/nyuv2/nyu_data/data",
-        filenames_path="/media/master/text/cv_data/nyuv2/nyu_data/data",
+        data_path=data_path,
+        filenames_path=data_path,
         is_train=False,
         crop_size=args.crop_size,
         scale_size=args.target_size,
         fold_ratio=args.out_fold_ratio,
         args=args,
     )
+    _ = nyuv2_ds_train[0]
 
     def generator(ds):
         # for images, labels in nyuv2_loader:
@@ -200,24 +211,32 @@ def get_tf_nyuv2_ds(args):
 
     # Use output_signature to specify the output format and shapes
     output_signature = (
-        tf.TensorSpec(shape=(64, 64, 3), dtype=tf.float32),
-        tf.TensorSpec(shape=(64, 64, 1), dtype=tf.float32),
+        tf.TensorSpec(shape=(*args.target_size, 3), dtype=tf.float32),
+        tf.TensorSpec(shape=(*args.target_size, 1), dtype=tf.float32),
     )
 
     val_size = int(0.2 * len(nyuv2_ds_train))  # 20% of the dataset
 
     # Split the dataset into training and validation sets
+    seed_generator = torch.Generator().manual_seed(111)
     train_dataset, val_dataset = random_split(
-        nyuv2_ds_train, [len(nyuv2_ds_train) - val_size, val_size]
+        nyuv2_ds_train,
+        [len(nyuv2_ds_train) - val_size, val_size],
+        generator=seed_generator,
     )
     datasets = []
-    from functools import partial
+
+    print("Train size: ", len(train_dataset))
+    print("Val size: ", len(val_dataset))
+    print("Test size: ", len(nyuv2_ds_test))
 
     for ds in [train_dataset, val_dataset, nyuv2_ds_test]:
         if cfg.do_overfit:
             ds = Subset(ds, range(1))
+        elif cfg.do_subsample:
+            ds = Subset(ds, range(0, 2000))
         tf_dataset = tf.data.Dataset.from_generator(
             partial(generator, ds=ds), output_signature=output_signature
-        )
+        ).batch(args.batch_size).prefetch(1)
         datasets.append(tf_dataset)
     return datasets

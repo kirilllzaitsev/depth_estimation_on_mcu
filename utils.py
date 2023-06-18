@@ -1,10 +1,10 @@
 import os
+import random
+import tempfile
 
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from config import cfg
-from mnist_data import test_images, test_labels, train_images, train_labels
 
 
 def print_meta():
@@ -15,35 +15,38 @@ def print_meta():
     )
 
 
-def save_test_data():
+def save_test_data(save_dir, test_images, test_labels):
     # save the test data as numpy arrays
-    np.save(f"{cfg.save_test_data_dir}/x_test_depth.npy", test_images.astype(np.uint8))
-    np.save(f"{cfg.save_test_data_dir}/y_test_depth.npy", test_labels.astype(np.uint8))
-    # plot the first 5 images in the test set with their labels
-    # map class labels to names
-    class_names = [
-        "T-shirt/top",
-        "Trouser",
-        "Pullover",
-        "Dress",
-        "Coat",
-        "Sandal",
-        "Shirt",
-        "Sneaker",
-        "Bag",
-        "Ankle boot",
-    ]
-    for i in range(5):
-        plt.subplot(1, 5, i + 1)
-        plt.imshow(test_images.astype(np.uint8)[i], cmap="gray")
-        plt.title("Label: %s" % class_names[test_labels[i]])
+    np.save(f"{save_dir}/x_test_depth.npy", test_images.numpy())
+    np.save(f"{save_dir}/y_test_depth.npy", test_labels.numpy())
 
     # print the location of the files
     print(
         "Test image data location: ",
-        os.path.abspath(f"{cfg.save_test_data_dir}/x_test_depth.npy"),
+        os.path.abspath(f"{save_dir}/x_test_depth.npy"),
     )
     print(
         "Test labels location: ",
-        os.path.abspath(f"{cfg.save_test_data_dir}/y_test_depth.npy"),
+        os.path.abspath(f"{save_dir}/y_test_depth.npy"),
     )
+
+
+def set_seed(seed=1234):
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+
+
+# Define a helper function to actually compress the models via gzip and measure the zipped size.
+
+
+def get_gzipped_model_size(file):
+    # It returns the size of the gzipped model in bytes.
+    import os
+    import zipfile
+
+    _, zipped_file = tempfile.mkstemp(".zip")
+    with zipfile.ZipFile(zipped_file, "w", compression=zipfile.ZIP_DEFLATED) as f:
+        f.write(file)
+
+    return os.path.getsize(zipped_file)

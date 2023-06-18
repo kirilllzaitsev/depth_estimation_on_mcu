@@ -4,6 +4,14 @@ from config import cfg
 
 def calculate_loss(target, pred):
     # Edges
+    if not isinstance(target, tf.Tensor):
+        target = tf.convert_to_tensor(target)
+    if not isinstance(pred, tf.Tensor):
+        pred = tf.convert_to_tensor(pred)
+    if len(target.shape) == 3:
+        target = target[tf.newaxis, ...]
+    if len(pred.shape) == 3:
+        pred = pred[tf.newaxis, ...]
     dy_true, dx_true = tf.image.image_gradients(target)
     dy_pred, dx_pred = tf.image.image_gradients(pred)
     weights_x = tf.exp(tf.reduce_mean(tf.abs(dx_true)))

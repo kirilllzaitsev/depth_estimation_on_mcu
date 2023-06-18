@@ -22,6 +22,8 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from PIL import Image, ImageTk
 
+sleep_interval = 2
+
 
 def draw_gui(classes, correct_count, test_len, x, class_idx, pred):
     root = ctk.CTk()
@@ -111,9 +113,13 @@ def main(x_test, y_test, classes, ser: serial.Serial):
     num_pixels = np.product(img_size)
 
     _ = get_pred(ser, img_size, num_pixels, x_test[0])
-    time.sleep(2)
+    time.sleep(sleep_interval)
 
+    ser.reset_input_buffer()
+    ser.reset_output_buffer()
+    
     for req_img, class_idx in zip(x_test[:test_len], y_test[:test_len]):
+        assert ser.is_open, "Serial port is not open"
         req_img, pred = get_pred(ser, img_size, num_pixels, req_img)
         print(pred)
 
@@ -143,13 +149,18 @@ def get_pred(ser, img_size, num_pixels, req_img):
     req_img = cv2.resize(req_img, img_size)
     ser.write(req_img.tobytes())
     ser.flush()
+    time.sleep(sleep_interval - 1)
     resp_img = ser.read(num_pixels)
     resp_img = np.frombuffer(resp_img, dtype=np.uint8)
+    # time.sleep(sleep_interval - 1)
     assert (
         len(resp_img) == num_pixels
     ), f"Expected {num_pixels} bytes, got {len(resp_img)}"
     pred = ser.read(10)
     pred = np.frombuffer(pred, dtype=np.uint8)
+    if len(pred) != 10:
+        print("Error: prediction not received correctly")
+        pred = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     return req_img, pred
 
 

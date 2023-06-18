@@ -153,9 +153,17 @@ def get_pred(ser, img_size, num_pixels_in, req_img, num_pixels_out=None):
     req_img = (req_img * 255).astype("uint8")
     ser.write(req_img.tobytes())
     ser.flush()
-    time.sleep(15)
-    resp_img = ser.read(num_pixels_in)
-    resp_img = np.frombuffer(resp_img, dtype=np.uint8)
+    received_bytes = 0
+    data = b''
+    expected_bytes = num_pixels_in
+    start = time.time()
+    while received_bytes < expected_bytes:
+        remaining_bytes = expected_bytes - received_bytes
+        chunk = ser.read(remaining_bytes)
+        received_bytes += len(chunk)
+        data += chunk
+    print(f"Received {received_bytes} bytes in {time.time() - start:.2f} seconds")
+    resp_img = np.frombuffer(data, dtype=np.uint8)
     assert (
         len(resp_img) == num_pixels_in
     ), f"Expected {num_pixels_in} bytes, got {len(resp_img)}"
@@ -199,7 +207,7 @@ if __name__ == "__main__":
     print(f"Loaded y with shape: {y_test.shape}")
 
     serial_port = "/dev/ttyACM0"
-    ser = serial.Serial(port=serial_port, baudrate=115200, timeout=20, buffer_size=12400)
+    ser = serial.Serial(port=serial_port, baudrate=115200, timeout=20)
     # flush the serial port
     ser.flush()
     ser.flushInput()

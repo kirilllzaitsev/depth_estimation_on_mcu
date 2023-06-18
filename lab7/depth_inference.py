@@ -107,9 +107,9 @@ def main(x_test, y_test, ser: serial.Serial):
     correct_count = 0
     # define how many images from the test set to send to the MCU
     test_len = 2
-    img_size = (64, 64)
+    img_size = (32, 32)
     # img_size = (64,64)
-    num_pixels_in = np.product(img_size) * 3
+    num_pixels_in = np.product(img_size) * 1
     num_pixels_out = np.product(img_size) * 1
 
     _ = get_pred(ser, img_size, num_pixels_in, x_test[0], num_pixels_out=num_pixels_out)
@@ -161,13 +161,14 @@ def get_pred(ser, img_size, num_pixels_in, req_img, num_pixels_out=None):
         remaining_bytes = expected_bytes - received_bytes
         chunk = ser.read(remaining_bytes)
         received_bytes += len(chunk)
+        print(f"{received_bytes=}")
         data += chunk
     print(f"Received {received_bytes} bytes in {time.time() - start:.2f} seconds")
     resp_img = np.frombuffer(data, dtype=np.uint8)
     assert (
         len(resp_img) == num_pixels_in
     ), f"Expected {num_pixels_in} bytes, got {len(resp_img)}"
-    time.sleep(15)
+    time.sleep(5)
     pred = ser.read(num_pixels_out)
     pred = np.frombuffer(pred, dtype=np.uint8)
     fig, axs = plt.subplots(1, 3, figsize=(10, 5))
@@ -194,10 +195,12 @@ if __name__ == "__main__":
     print(args)
 
     x_test = np.load(
-        "/media/master/wext/msc_studies/second_semester/microcontrollers/project/stm32/code/test_data/x_test_depth.npy"
+        # "/media/master/wext/msc_studies/second_semester/microcontrollers/project/stm32/code/test_data/x_test_depth.npy"
+        "/tmp/test_data/x_test_depth.npy"
     )
     y_test = np.load(
-        "/media/master/wext/msc_studies/second_semester/microcontrollers/project/stm32/code/test_data/y_test_depth.npy"
+        # "/media/master/wext/msc_studies/second_semester/microcontrollers/project/stm32/code/test_data/y_test_depth.npy"
+        "/tmp/test_data/y_test_depth.npy"
     ).squeeze()
 
     ctk.set_appearance_mode("dark")

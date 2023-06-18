@@ -151,7 +151,7 @@ class nyudepthv2(BaseDataset):
         gt_path = str(self.base_dir / self.df.loc[idx, "depth_path"])
 
         image = cv2.imread(img_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)[..., np.newaxis]
         depth = cv2.imread(gt_path, cv2.IMREAD_UNCHANGED).astype("float32")
 
         # depth = depth / 1000.0  # convert in meters
@@ -165,6 +165,7 @@ class nyudepthv2(BaseDataset):
             image = cv2.resize(image, (self.scale_size[1], self.scale_size[0]))
             depth = cv2.resize(depth, (self.scale_size[1], self.scale_size[0]))
 
+        image = np.expand_dims(image, axis=2)
         depth = np.expand_dims(depth, axis=2)
         depth = depth.astype("float32")
         image = image.astype("float32")
@@ -211,7 +212,7 @@ def get_tf_nyuv2_ds(data_path, args):
 
     # Use output_signature to specify the output format and shapes
     output_signature = (
-        tf.TensorSpec(shape=(*args.target_size, 3), dtype=tf.float32),
+        tf.TensorSpec(shape=(*args.target_size, 1), dtype=tf.float32),
         tf.TensorSpec(shape=(*args.target_size, 1), dtype=tf.float32),
     )
 

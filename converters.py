@@ -100,7 +100,7 @@ class Converter:
         )
         print("TFLite Model size with 8-bit quantization: %d KB" % tflite_quant_in_kb)
         fp_tflite_in_kb = (
-            os.path.getsize(f"{self.cfg.save_model_dir}/depth_model_f32.tflite") / 1024
+            os.path.getsize(f"{self.cfg.save_model_dir}/depth_model_fp32.tflite") / 1024
         )
 
         print("TFLite Model size without quantization: %d KB" % fp_tflite_in_kb)

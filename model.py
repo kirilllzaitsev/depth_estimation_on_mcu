@@ -17,6 +17,7 @@ def get_model(
     use_pruning_struct=False,
     use_dynamic_sparsity=False,
     pruned_model_unstructured_for_export=None,
+    do_downsample_model=False,
 ):
     # inputs = keras.Input(shape=img_size + (in_channels,))
     inputs = layers.Input(shape=(*img_size, in_channels), name="input")
@@ -24,9 +25,12 @@ def get_model(
     ### [First half of the network: downsampling inputs] ###
 
     # Entry block
-    filters = [16//2*3, 32//2*3, 64//2*3]
-    # filters = [16, 32, 64]
-    # filters = [16, 32, 64, 128, 256]
+    if do_downsample_model:
+        filters = [16 // 4 * 3, 32 // 4 * 3, 64 // 4 * 3]
+    else:
+        filters = [16//2*3, 32//2*3, 64//2*3]
+        # filters = [16, 32, 64]
+        # filters = [16, 32, 64, 128, 256]
     x = layers.Conv2D(filters[0], in_channels, strides=2, padding="same")(inputs)
     x = layers.BatchNormalization()(x)
     x = layers.Activation(tf.nn.relu)(x)

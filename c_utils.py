@@ -41,10 +41,10 @@ def hex_to_c_array(hex_data, var_name):
     return c_str
 
 
-def write_model_h(model_name, model):
+def write_model_h(model_name, model, dst_dir="cfiles"):
     # check if dir 'cfiles' exists, if not create it
-    if not os.path.exists("cfiles"):
-        os.makedirs("cfiles")
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
     # Write TFLite model to a C source (or header) file
-    with open("cfiles/" + model_name + ".h", "w") as file:
+    with open(f"{dst_dir}/" + model_name + ".h", "w") as file:
         file.write(hex_to_c_array(model, model_name))

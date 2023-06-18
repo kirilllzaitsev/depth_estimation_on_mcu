@@ -15,7 +15,6 @@ def plot_history(history, save_path=None):
     plt.legend(loc="upper right")
     if save_path is not None:
         plt.savefig(save_path)
-    plt.show()
 
 
 def plot_sample_nyuv2(x):

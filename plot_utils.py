@@ -7,7 +7,7 @@ def plot_history(history, save_path=None):
     # Plot the training history
     if not isinstance(history, dict):
         history = history.history
-    plt.plot(history["loss"], label="loss")
+    plt.plot(history["loss"], label="train_loss")
     plt.plot(history["val_loss"], label="val_loss")
     plt.xlabel("Epoch")
     plt.ylabel("MAE")

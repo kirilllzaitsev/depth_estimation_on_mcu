@@ -46,8 +46,8 @@ class modelcfg:
 
 
 class traincfg:
-    epochs = 100
-    es_patience = 5
+    epochs = 50
+    es_patience = 7
 
     ssim_loss_weight = 0.85
     l1_loss_weight = 0.1

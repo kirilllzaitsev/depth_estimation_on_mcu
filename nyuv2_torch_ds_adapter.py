@@ -173,8 +173,9 @@ class nyudepthv2(BaseDataset):
 
         # image = tf.image.convert_image_dtype(image, tf.float32)
         depth /= 1000.0  # convert in meters
-        min_depth, max_depth = 0.2, 4
-        depth = (depth - min_depth) / (max_depth - min_depth)
+        # min_depth, max_depth = 0.002, 4
+        # depth = (depth - min_depth) / (max_depth - min_depth)
+        depth = np.clip(depth, 0, 1)
         image /= 255.0
 
         return image, depth
@@ -235,7 +236,7 @@ def get_tf_nyuv2_ds(data_path, args):
         if cfg.do_overfit:
             ds = Subset(ds, range(1))
         elif cfg.do_subsample:
-            ds = Subset(ds, range(0, 2000))
+            ds = Subset(ds, range(0, 3000))
         tf_dataset = tf.data.Dataset.from_generator(
             partial(generator, ds=ds), output_signature=output_signature
         ).batch(args.batch_size).prefetch(1)

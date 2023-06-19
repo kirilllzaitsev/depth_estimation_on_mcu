@@ -17,7 +17,8 @@ def get_model(
     use_pruning_struct=False,
     use_dynamic_sparsity=False,
     pruned_model_unstructured_for_export=None,
-    do_downsample_model=False,
+    do_downsample_model=True,
+    # do_downsample_model=False,
 ):
     # inputs = keras.Input(shape=img_size + (in_channels,))
     inputs = layers.Input(shape=(*img_size, in_channels), name="input")
@@ -28,7 +29,7 @@ def get_model(
     if do_downsample_model:
         filters = [16 // 4 * 3, 32 // 4 * 3, 64 // 4 * 3]
     else:
-        filters = [16//2*3, 32//2*3, 64//2*3]
+        filters = [16 // 2 * 3, 32 // 2 * 3, 64 // 2 * 3]
         # filters = [16, 32, 64]
         # filters = [16, 32, 64, 128, 256]
     x = layers.Conv2D(filters[0], in_channels, strides=2, padding="same")(inputs)
@@ -85,8 +86,8 @@ def get_model(
         # 1, in_channels, activation="tanh", padding="same", name="output"
         1,
         in_channels,
-        activation="tanh",
-        # activation="sigmoid",
+        # activation="tanh",
+        activation="sigmoid",
         padding="same",
         name="output",
     )(x)
@@ -112,7 +113,7 @@ def get_model(
             # Strucutred pruning with constant sparsity
             pruning_params = {
                 "pruning_schedule": tfmot.sparsity.keras.ConstantSparsity(
-                    0.5, begin_step=2000, frequency=100
+                    0.6, begin_step=1, end_step=-1, frequency=1
                 ),
                 "block_size": (1, 1),
             }
@@ -121,17 +122,17 @@ def get_model(
                 # Unstructured pruning with dynamic sparsity
                 pruning_params = {
                     "pruning_schedule": tfmot.sparsity.keras.PolynomialDecay(
-                        initial_sparsity=0.50,
+                        initial_sparsity=0.30,
                         final_sparsity=0.80,
-                        begin_step=2000,
-                        end_step=4000,
-                        frequency=100,
+                        begin_step=10,
+                        end_step=400,
+                        frequency=10,
                     )
                 }
             else:
                 pruning_params = {
                     "pruning_schedule": tfmot.sparsity.keras.ConstantSparsity(
-                        0.5, begin_step=2000, frequency=100
+                        0.7, begin_step=10, frequency=10
                     ),
                 }
         model = tfmot.sparsity.keras.prune_low_magnitude(model, **pruning_params)

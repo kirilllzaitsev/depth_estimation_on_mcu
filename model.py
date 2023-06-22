@@ -113,7 +113,7 @@ def get_model(
             # Strucutred pruning with constant sparsity
             pruning_params = {
                 "pruning_schedule": tfmot.sparsity.keras.ConstantSparsity(
-                    0.6, begin_step=1, end_step=-1, frequency=1
+                    0.95, begin_step=1, end_step=-1, frequency=1
                 ),
                 "block_size": (1, 1),
             }
@@ -123,7 +123,7 @@ def get_model(
                 pruning_params = {
                     "pruning_schedule": tfmot.sparsity.keras.PolynomialDecay(
                         initial_sparsity=0.30,
-                        final_sparsity=0.80,
+                        final_sparsity=0.90,
                         begin_step=10,
                         end_step=400,
                         frequency=10,

@@ -4,7 +4,8 @@ This repository contains Tensorflow code to create, train, and deploy a monocula
 
 ## Setup
 
-```pip install -r requirements.txt```
+- ```pip install -r requirements.txt```
+- create a .env file in the project root with the following variables:
 
 ```bash
 path_to_project_dir=/abs/path/to/project/root

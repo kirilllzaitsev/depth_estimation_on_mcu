@@ -1,1 +1,0 @@
-{"depth_model_fp32": {"mse": "0.002", "mae": "0.024", "eval_loss": "0.024", "eval_metric": "0.135"}, "depth_full_quant": {"mse": "9540.054", "mae": "96.149", "eval_loss": "-1", "eval_metric": "-1"}, "depth_qat_int8": {"mse": "0.003", "mae": "0.042", "eval_loss": "0.042", "eval_metric": "0.347"}}

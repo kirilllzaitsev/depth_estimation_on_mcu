@@ -1,26 +1,14 @@
-import random
-import sys
 from functools import partial
 from pathlib import Path
 
+import albumentations as A
+import cv2
 import numpy as np
 import tensorflow as tf
 import torch
-
-sys.path.append(
-    "/media/master/wext/msc_studies/second_semester/microcontrollers/project/stm32/code/nyuv2_torch_ds_adapter.py"
-)
-import json
-import os
-
-import albumentations as A
-import cv2
 import torchvision.transforms as transforms
 from config import cfg
-from torch.utils.data import DataLoader, Dataset, Subset, random_split
-
-# changes to orig dataset
-# scale_size -> target_size
+from torch.utils.data import Dataset, Subset, random_split
 
 
 class BaseDataset(Dataset):
@@ -30,11 +18,8 @@ class BaseDataset(Dataset):
         self.is_maxim = is_maxim
 
         train_transform = [
-            # A.HorizontalFlip(),
+            A.HorizontalFlip(),
             A.RandomCrop(crop_size[1], crop_size[0]),
-            # A.RandomBrightnessContrast(),
-            # A.RandomGamma(),
-            # A.HueSaturationValue(),
         ]
         test_transform = [
             A.CenterCrop(crop_size[1], crop_size[0]),
@@ -44,26 +29,8 @@ class BaseDataset(Dataset):
         self.to_tensor = transforms.ToTensor()
         self.args = args
 
-    def readTXT(self, txt_path):
-        with open(txt_path, "r") as f:
-            listInTXT = [line.strip() for line in f]
-
-        return listInTXT
-
     def augment_training_data(self, image, depth):
         H, W, C = image.shape
-
-        # if self.count % 4 == 0:
-        #     alpha = random.random()
-        #     beta = random.random()
-        #     p = 0.75
-
-        #     l = int(alpha * W)
-        #     w = int(max((W - alpha * W) * beta * p, 1))
-
-        #     image[:, l : l + w, 0] = depth[:, l : l + w]
-        #     image[:, l : l + w, 1] = depth[:, l : l + w]
-        #     image[:, l : l + w, 2] = depth[:, l : l + w]
 
         image, depth = self.common_augment(image, depth, self.train_transform)
 
@@ -81,7 +48,6 @@ class BaseDataset(Dataset):
         if self.is_maxim:
             image = self.apply_ai8x_transforms(image)
             depth = self.apply_ai8x_transforms(depth)
-        # depth = depth.squeeze()
         return image, depth
 
     def apply_ai8x_transforms(self, x):
@@ -98,12 +64,12 @@ class BaseDataset(Dataset):
         return image, depth
 
 
-class nyudepthv2(BaseDataset):
+class NYUv2Depth(BaseDataset):
     def __init__(
         self,
         data_path,
         args,
-        filenames_path="/media/master/text/cv_data/nyuv2/nyu_data/data",
+        filenames_path,
         is_train=True,
         crop_size=(448, 576),
         scale_size=None,
@@ -115,9 +81,6 @@ class nyudepthv2(BaseDataset):
             args=args,
             is_maxim=getattr(args, "is_maxim", True),
         )
-
-        # if crop_size[0] > 480:
-        #     scale_size = (int(crop_size[0] * 640 / 480), crop_size[0])
 
         self.scale_size = scale_size
 
@@ -154,8 +117,6 @@ class nyudepthv2(BaseDataset):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)[..., np.newaxis]
         depth = cv2.imread(gt_path, cv2.IMREAD_UNCHANGED).astype("float32")
 
-        # depth = depth / 1000.0  # convert in meters
-
         if self.is_train:
             image, depth = self.augment_training_data(image, depth)
         else:
@@ -169,20 +130,15 @@ class nyudepthv2(BaseDataset):
         depth = np.expand_dims(depth, axis=2)
         depth = depth.astype("float32")
         image = image.astype("float32")
-        # depth = tf.image.convert_image_dtype(depth, tf.float32)
-
-        # image = tf.image.convert_image_dtype(image, tf.float32)
-        depth /= 1000.0  # convert in meters
-        # min_depth, max_depth = 0.002, 4
-        # depth = (depth - min_depth) / (max_depth - min_depth)
-        depth = np.clip(depth, 0, 1)
+        depth_meters /= 1000.0
+        depth_meters = np.clip(depth_meters, 0, 1)
         image /= 255.0
 
-        return image, depth
+        return image, depth_meters
 
 
 def get_tf_nyuv2_ds(data_path, args):
-    nyuv2_ds_train = nyudepthv2(
+    nyuv2_ds_train = NYUv2Depth(
         data_path=data_path,
         filenames_path=data_path,
         args=args,
@@ -191,7 +147,7 @@ def get_tf_nyuv2_ds(data_path, args):
         scale_size=args.target_size,
         fold_ratio=args.out_fold_ratio,
     )
-    nyuv2_ds_test = nyudepthv2(
+    nyuv2_ds_test = NYUv2Depth(
         data_path=data_path,
         filenames_path=data_path,
         is_train=False,
@@ -203,15 +159,10 @@ def get_tf_nyuv2_ds(data_path, args):
     _ = nyuv2_ds_train[0]
 
     def generator(ds):
-        # for images, labels in nyuv2_loader:
         for sample in ds:
-            # Yield data batch-by-batch
             img, depth = sample
-            # img /= 255.0
             yield (img, depth)
-            # yield images.numpy(), labels.numpy()
 
-    # Use output_signature to specify the output format and shapes
     output_signature = (
         tf.TensorSpec(shape=(*args.target_size, 1), dtype=tf.float32),
         tf.TensorSpec(shape=(*args.target_size, 1), dtype=tf.float32),
@@ -219,7 +170,6 @@ def get_tf_nyuv2_ds(data_path, args):
 
     val_size = int(0.2 * len(nyuv2_ds_train))  # 20% of the dataset
 
-    # Split the dataset into training and validation sets
     seed_generator = torch.Generator().manual_seed(111)
     train_dataset, val_dataset = random_split(
         nyuv2_ds_train,
@@ -236,9 +186,13 @@ def get_tf_nyuv2_ds(data_path, args):
         if cfg.do_overfit:
             ds = Subset(ds, range(1))
         elif cfg.do_subsample:
-            ds = Subset(ds, range(0, 3000))
-        tf_dataset = tf.data.Dataset.from_generator(
-            partial(generator, ds=ds), output_signature=output_signature
-        ).batch(args.batch_size).prefetch(1)
+            ds = Subset(ds, range(0, 1000))
+        tf_dataset = (
+            tf.data.Dataset.from_generator(
+                partial(generator, ds=ds), output_signature=output_signature
+            )
+            .batch(args.batch_size)
+            .prefetch(1)
+        )
         datasets.append(tf_dataset)
     return datasets

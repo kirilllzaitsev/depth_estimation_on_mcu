@@ -3,35 +3,25 @@ import os
 import keras
 import tensorflow as tf
 import tensorflow_model_optimization as tfmot
-
-# import tensorflow.keras as keras
 from keras import layers
 
 
 def get_model(
     img_size,
-    num_classes,
     in_channels=3,
     use_qat=False,
     use_pruning=False,
     use_pruning_struct=False,
     use_dynamic_sparsity=False,
     pruned_model_unstructured_for_export=None,
-    do_downsample_model=True,
-    # do_downsample_model=False,
+    do_reduce_channels=True,
 ):
-    # inputs = keras.Input(shape=img_size + (in_channels,))
     inputs = layers.Input(shape=(*img_size, in_channels), name="input")
 
-    ### [First half of the network: downsampling inputs] ###
-
-    # Entry block
-    if do_downsample_model:
+    if do_reduce_channels:
         filters = [16 // 4 * 3, 32 // 4 * 3, 64 // 4 * 3]
     else:
         filters = [16 // 2 * 3, 32 // 2 * 3, 64 // 2 * 3]
-        # filters = [16, 32, 64]
-        # filters = [16, 32, 64, 128, 256]
     x = layers.Conv2D(filters[0], in_channels, strides=2, padding="same")(inputs)
     x = layers.BatchNormalization()(x)
     x = layers.Activation(tf.nn.relu)(x)
@@ -76,17 +66,9 @@ def get_model(
         x = layers.add([x, residual])  # Add back residual
         previous_block_activation = x  # Set aside next residual
 
-    # x = layers.Conv2D(
-    #     1, in_channels, activation=None, padding="same"
-    # )(x)
-    # outputs = layers.Activation("sigmoid", name="output")(x)
-
-    # Add a per-pixel classification layer
     outputs = layers.Conv2D(
-        # 1, in_channels, activation="tanh", padding="same", name="output"
         1,
         in_channels,
-        # activation="tanh",
         activation="sigmoid",
         padding="same",
         name="output",
@@ -103,14 +85,14 @@ def get_model(
 
         model = tfmot.quantization.keras.quantize_apply(
             quant_aware_annotate_model,
-            # tfmot.experimental.combine.Default8BitPrunePreserveQuantizeScheme(),
+            tfmot.experimental.combine.Default8BitPrunePreserveQuantizeScheme(),
         )
     elif use_qat:
         # Convert the model to a quantization aware model
         model = tfmot.quantization.keras.quantize_model(model)
     elif use_pruning:
         if use_pruning_struct:
-            # Strucutred pruning with constant sparsity
+            # Structured pruning with constant sparsity
             pruning_params = {
                 "pruning_schedule": tfmot.sparsity.keras.ConstantSparsity(
                     0.95, begin_step=1, end_step=-1, frequency=1

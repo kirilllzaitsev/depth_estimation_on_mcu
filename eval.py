@@ -1,10 +1,8 @@
 import json
 import pathlib
 
-import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from config import cfg
 
 
 # Helper function to run inference on a TFLite model

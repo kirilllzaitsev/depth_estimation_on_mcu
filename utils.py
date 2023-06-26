@@ -1,8 +1,8 @@
 import os
 import random
 import tempfile
+import zipfile
 
-import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
@@ -37,14 +37,7 @@ def set_seed(seed=1234):
     random.seed(seed)
 
 
-# Define a helper function to actually compress the models via gzip and measure the zipped size.
-
-
 def get_gzipped_model_size(file):
-    # It returns the size of the gzipped model in bytes.
-    import os
-    import zipfile
-
     _, zipped_file = tempfile.mkstemp(".zip")
     with zipfile.ZipFile(zipped_file, "w", compression=zipfile.ZIP_DEFLATED) as f:
         f.write(file)

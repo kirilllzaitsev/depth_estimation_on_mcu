@@ -1,10 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import tensorflow as tf
 from loss import calculate_loss
 
 
 def plot_history(history, save_path=None):
-    # Plot the training history
     if not isinstance(history, dict):
         history = history.history
     plt.plot(history["loss"], label="train_loss")
@@ -60,4 +60,29 @@ def plot_eval_results(pred_depth, true_depth, rgb, history=None):
     axs[1].set_title("True depth")
     axs[2].imshow(rgb)
     axs[2].set_title("RGB")
+    plt.show()
+
+
+def plot_weight_distribution(model):
+    num_layers = len(model.layers)
+    layers_per_row = 5
+    fig, axs = plt.subplots(
+        num_layers // layers_per_row + 1, layers_per_row, figsize=(20, 20)
+    )
+    for idx, layer in enumerate(model.layers):
+        if isinstance(layer, tf.keras.layers.InputLayer):
+            continue
+        row = idx // layers_per_row
+        row = (
+            num_layers // layers_per_row if row > num_layers // layers_per_row else row
+        )
+        col = idx % layers_per_row
+        if len(layer.get_weights()) == 0:
+            # print(f"Skipping layer {layer.name} as it has no weights")
+            continue
+        axs[row, col].hist(layer.get_weights()[0].flatten(), bins=10)
+        axs[row, col].set_title(layer.name)
+        axs[row, col].set_yscale("log")
+        axs[row, col].set_xticks([-1, 0, 1])
+    plt.tight_layout()
     plt.show()

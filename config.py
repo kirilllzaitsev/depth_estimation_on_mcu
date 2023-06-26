@@ -33,9 +33,7 @@ classes = [
 
 class datacfg:
     h, w = 64, 64
-    # img_size = (64, 64)
     img_size = (32, 32)
-    # img_size = (640 // 4, 480 // 4)
     num_classes = len(classes)
     classes = classes
     in_channels = 1
@@ -46,7 +44,7 @@ class modelcfg:
 
 
 class traincfg:
-    epochs = 50
+    epochs = 10
     es_patience = 7
 
     ssim_loss_weight = 0.85

@@ -65,7 +65,7 @@ class metacfg:
     save_model_dir = ""
     save_cfiles_dir = ""
     save_test_data_dir = ""
-    base_kitti_dataset_dir = ""
+    base_dataset_dir = ""
 
     tmpdir = os.getenv("TMPDIR")
     logdir = ""
@@ -77,21 +77,14 @@ class cfg(datacfg, modelcfg, traincfg, metacfg):
     ...
 
 
-if cfg.is_cluster:
-    if not os.path.exists(f"{cfg.tmpdir}/cluster"):
-        os.system(
-            f"tar -xvf /cluster/project/rsl/kzaitsev/nyuv2.tar.gz -C {cfg.tmpdir} > /dev/null 2>&1"
-        )
-
 metacfg.save_model_dir = f"{metacfg.path_to_project_dir}/code/models"
 metacfg.save_cfiles_dir = f"{metacfg.path_to_project_dir}/code/cfiles"
 metacfg.save_test_data_dir = f"{metacfg.path_to_project_dir}/code/test_data"
 
 if metacfg.is_cluster:
-    metacfg.base_kitti_dataset_dir = os.path.join(
-        metacfg.tmpdir, os.environ["base_kitti_dataset_dir"]
+    metacfg.base_dataset_dir = os.path.join(
+        metacfg.tmpdir, os.environ["base_dataset_dir"]
     )
-    metacfg.logdir = "/cluster/scratch/kzaitse/stm32/logs"
 else:
-    metacfg.base_kitti_dataset_dir = os.environ["base_kitti_dataset_dir"]
+    metacfg.base_dataset_dir = os.environ["base_dataset_dir"]
     metacfg.logdir = "/tmp"

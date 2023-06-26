@@ -79,7 +79,7 @@ def get_pred(ser, img_size, num_pixels_in, req_img, num_pixels_out=None):
     axs[1].set_title("Response Image")
     axs[2].set_title("Depth Prediction")
 
-    plt.savefig("depth_test.png")
+    plt.savefig("prediction.png")
     pred = pred.reshape(img_size)
     req_img = req_img.reshape(img_size)
     return req_img, pred

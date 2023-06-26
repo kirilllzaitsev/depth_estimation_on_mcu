@@ -12,7 +12,7 @@ path_to_project_dir=/abs/path/to/project/root
 base_dataset_dir=/abs/path/to/nyuv2/dataset
 ```
 
-Please, replace absolute paths and set a proper serial port for communication in depth_inference.py
+Please, replace absolute paths where appropriate. For interfacing with a device, set a proper serial port that your device is using in depth_inference.py
 
 ## Run
 
@@ -24,4 +24,4 @@ Trained models will appear in the models/ folder. .h5 or .tflite files can be us
 
 cfiles/ contains C files for each model type. Flashing a model to a device requires only its corresponding header file in cfiles/.
 
-depth_inference.py is used for interfacing with a device and prediction.png is a sample prediction. A highly structured pattern observed in prediction.png does not indicate an issue with the model, but rather a flaw with data I/O.
+depth_inference.py is used for interfacing with a device and prediction.png is a sample prediction obtained after running the script.
